@@ -136,20 +136,20 @@ module.exports = function setup(fsOptions) {
                 var left = children.length - index,
                     statEntry;
 
-                    if (data.Buckets) {
-                        statEntry = { bucket: child };
-                    } else {
-                        statEntry = { prefix: prefix, child: child, bucket: paths.bucket };
-                    }
+                if (data.Buckets) {
+                    statEntry = { bucket: child };
+                } else {
+                    statEntry = { prefix: prefix, child: child, bucket: paths.bucket };
+                }
 
-                    createStatEntry(statEntry, function (err, entry) {
-                        if (err) {
-                            stream.emit('error', err);
-                        } else {
-                            stream.emit("data", entry);
-                        }
-                        if (!paused) getNext();
-                    });
+                createStatEntry(statEntry, function (err, entry) {
+                    if (err) {
+                        stream.emit('error', err);
+                    } else {
+                        stream.emit("data", entry);
+                    }
+                    if (!paused) getNext();
+                });
             }
 
             function done() {
