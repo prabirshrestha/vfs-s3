@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "knox": "~0.8.9",
-    "mime": "~1.2.11"
+    "mime": "~1.2.11",
+    "aws-sdk": "~2.0.0-rc9"
   }
 }

@@ -1,14 +1,9 @@
 var Stream  = require('stream'),
     knox    = require('knox'),
+    AWS     = require('aws-sdk'),
     mime    = require('mime');
 
 module.exports = function setup(fsOptions) {
-
-    var client = knox.createClient({
-        key:    fsOptions.key,
-        secret: fsOptions.secret,
-        bucket: fsOptions.bucket
-    });
 
     return {
         readfile:   readfile,
@@ -23,6 +18,32 @@ module.exports = function setup(fsOptions) {
         symlink:    symlink
     };
 
+    function getClient (bucket) {
+        var options = {
+            accessKeyId: fsOptions.key,
+            secretAccessKey: fsOptions.secret
+        };
+
+        if (bucket) {
+            options.params = {
+                Bucket: bucket
+            } ;
+        }
+
+        return new AWS.S3(options);
+    }
+
+    function getPaths(path) {
+        var paths = path.split('/').filter(function (path) {
+            return path !== '';
+        });
+
+        return {
+            bucket: paths[0],
+            path:   paths.slice(1).join('/')
+        };
+    }
+
     function readfile(path, options, callback) {
         callback(new Error('readfile: Not Implemented'));
     }
@@ -36,14 +57,25 @@ module.exports = function setup(fsOptions) {
     }
 
     function readdir(path, options, callback) {
-        var prefix = path.substr(1);
-        if (prefix.length !== 0 && prefix[prefix.length - 1] !== '/') {
-            prefix += '/';
-        }
+        var client = getClient();
+        var paths = getPaths(path);
+        var prefix;
 
         var meta = {};
 
-        client.list({ prefix: prefix, delimiter: '/' }, function (err, data) {
+        if (paths.bucket) {
+            prefix = paths.path;
+
+            if (prefix.length !== 0) {
+                prefix = paths.path + '/';
+            }
+
+            client.listObjects({ Prefix: prefix, Delimiter: '/', Bucket: paths.bucket }, processCallback);
+        } else {
+            client.listBuckets(processCallback);
+        }
+
+        function processCallback (err, data) {
             if (err) return callback(err);
 
             var stream = new Stream();
@@ -62,7 +94,12 @@ module.exports = function setup(fsOptions) {
                 getNext();
             };
 
-            var children = data.Contents.concat(data.CommonPrefixes);
+            var children;
+            if (data.Buckets) {
+                children = data.Buckets;
+            } else {
+                children = data.CommonPrefixes.concat(data.Contents);
+            }
 
             meta.stream = stream;
             callback(null, meta);
@@ -73,23 +110,30 @@ module.exports = function setup(fsOptions) {
             function getNext () {
                 if (index === children.length) return done();
                 var child = children[index++];
-                var left = children.length - index;
+                var left = children.length - index,
+                    statEntry;
 
-                createStatEntry({ root: prefix, child: child }, function (err, entry) {
-                    if (err) {
-                        stream.emit('error', err);
+                    if (data.Buckets) {
+                        statEntry = { bucket: child };
                     } else {
-                        stream.emit("data", entry);
+                        statEntry = { prefix: prefix, child: child, bucket: paths.bucket };
                     }
-                    if (!paused) getNext();
-                });
+
+                    createStatEntry(statEntry, function (err, entry) {
+                        if (err) {
+                            stream.emit('error', err);
+                        } else {
+                            stream.emit("data", entry);
+                        }
+                        if (!paused) getNext();
+                    });
             }
 
             function done() {
                 stream.emit("end");
             }
 
-        });
+        }
     }
 
     function stat(path, options, callback) {
@@ -119,17 +163,25 @@ module.exports = function setup(fsOptions) {
     function createStatEntry(options, callback) {
         var entry = {};
 
-        if (options.child.Prefix) {
-            entry.id = '/' + removeTrailingSlash(options.child.Prefix);
-            entry.name = removeTrailingSlash(options.child.Prefix.substr(options.root.length));
+        if (!options.child && options.bucket) {
+            entry.id = '/' + options.bucket.Name;
+            entry.name = options.bucket.Name;
+            entry.access = 4 | (true ? 2 : 0); // file.editable == true
+            entry.size = 0;
+            entry.mtime = (new Date()).valueOf(); // (new Date(file.modifiedDate)).valueOf()
+            entry.mime = 'inode/directory';
+            callback(null, entry);
+        } else if (options.child.Prefix) {
+            entry.id = '/' + options.bucket + '/' + removeTrailingSlash(options.child.Prefix);
+            entry.name = entry.id.substr(entry.id.lastIndexOf('/') + 1);
             entry.access = 4 | (true ? 2 : 0); // file.editable == true
             entry.size = 0;
             entry.mtime = (new Date()).valueOf(); // (new Date(file.modifiedDate)).valueOf()
             entry.mime = 'inode/directory';
             callback(null, entry);
         } else if (options.child.Key) {
-            entry.id = '/' + options.child.Key;
-            entry.name = options.child.Key.substr(options.root.length);
+            entry.id = '/' + options.bucket + '/' + options.child.Key;
+            entry.name = entry.id.substr(entry.id.lastIndexOf('/') + 1);
             entry.access = 4 | (true ? 2 : 0); // file.editable == true
             entry.size = options.child.Size,
             entry.mtime = options.child.LastModified;
