@@ -120,6 +120,7 @@ module.exports = function setup(fsOptions) {
         var entry = {};
 
         if (options.child.Prefix) {
+            entry.id = '/' + removeTrailingSlash(options.child.Prefix);
             entry.name = removeTrailingSlash(options.child.Prefix.substr(options.root.length));
             entry.access = 4 | (true ? 2 : 0); // file.editable == true
             entry.size = 0;
@@ -127,6 +128,7 @@ module.exports = function setup(fsOptions) {
             entry.mime = 'inode/directory';
             callback(null, entry);
         } else if (options.child.Key) {
+            entry.id = '/' + options.child.Key;
             entry.name = options.child.Key.substr(options.root.length);
             entry.access = 4 | (true ? 2 : 0); // file.editable == true
             entry.size = options.child.Size,
