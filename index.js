@@ -27,7 +27,7 @@ module.exports = function setup(fsOptions) {
         if (bucket) {
             options.params = {
                 Bucket: bucket
-            } ;
+            };
         }
 
         return new AWS.S3(options);
@@ -45,7 +45,30 @@ module.exports = function setup(fsOptions) {
     }
 
     function readfile(path, options, callback) {
-        callback(new Error('readfile: Not Implemented'));
+        var client = getClient();
+        var paths = getPaths(path);
+        var params = { Bucket: paths.bucket, Key: paths.path };
+        var meta = {};
+
+        client.headObject(params, function (err, headers) {
+            if (err) return callback(err);
+
+            meta.etag = headers.ETag;
+            meta.size = headers.ContentLength;
+            meta.mime = headers.ContentType;
+
+            if (options.etag) {
+                params.IfNoneMatch = options.etag;
+            }
+
+            if (meta.etag === options.etag) {
+                meta.notModified = true;
+                return callback(null, meta);
+            }
+
+            meta.stream = client.getObject(params).createReadStream();
+            callback(null, meta);
+        });
     }
 
     function mkfile(path, options, callback) {
