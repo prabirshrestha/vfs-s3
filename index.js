@@ -5,6 +5,9 @@ var Stream  = require('stream'),
 
 module.exports = function setup(fsOptions) {
 
+    var client;
+    intialize();
+
     return {
         readfile:   readfile,
         mkfile:     mkfile,
@@ -18,20 +21,15 @@ module.exports = function setup(fsOptions) {
         symlink:    symlink
     };
 
-    function getClient (bucket) {
+    function intialize() {
         var options = {
             accessKeyId: fsOptions.key,
             secretAccessKey: fsOptions.secret
         };
 
-        if (bucket) {
-            options.params = {
-                Bucket: bucket
-            };
-        }
-
-        return new AWS.S3(options);
+        client =  new AWS.S3(options);
     }
+
 
     function getPaths(path) {
         var paths = path.split('/').filter(function (path) {
@@ -45,7 +43,6 @@ module.exports = function setup(fsOptions) {
     }
 
     function readfile(path, options, callback) {
-        var client = getClient();
         var paths = getPaths(path);
         var params = { Bucket: paths.bucket, Key: paths.path };
         var meta = {};
@@ -80,7 +77,6 @@ module.exports = function setup(fsOptions) {
     }
 
     function readdir(path, options, callback) {
-        var client = getClient();
         var paths = getPaths(path);
         var prefix;
 
