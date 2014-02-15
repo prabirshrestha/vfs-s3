@@ -1,5 +1,4 @@
 var Stream  = require('stream'),
-    knox    = require('knox'),
     AWS     = require('aws-sdk'),
     mime    = require('mime');
 
