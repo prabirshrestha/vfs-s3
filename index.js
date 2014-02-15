@@ -29,7 +29,6 @@ module.exports = function setup(fsOptions) {
         client =  new AWS.S3(options);
     }
 
-
     function getPaths(path) {
         var paths = path.split('/').filter(function (path) {
             return path !== '';
@@ -155,7 +154,55 @@ module.exports = function setup(fsOptions) {
     }
 
     function stat(path, options, callback) {
-        callback(new Error('stat: Not Implemented'));
+        var paths = getPaths(path);
+        var prefix;
+
+        var meta = {};
+
+        if (paths.bucket) {
+            if (paths.path) {
+                client.headObject({ Bucket: paths.bucket, Key: paths.path }, function (err, data) {
+                    if (err) {
+                        if (err.statusCode === 404 && err.code === 'NotFound') {
+                            // always a directory if not found
+                            meta.mime = 'inode/directory';
+                            meta.name = paths.path.substr(paths.path.lastIndexOf('/') + 1);
+                            meta.path = '/' + paths.bucket + '/' + paths.path;
+                            meta.size = 0;
+                            meta.access = 4;
+                            return callback(null, meta);
+                        } else {
+                            return callback(err);
+                        }
+                    }
+
+                    meta.name = paths.path.substr(paths.path.lastIndexOf('/') + 1)
+                    meta.mime = data.ContentType;
+                    meta.size = data.ContentLength;
+                    meta.etag = data.ETag;
+                    meta.path = path;
+                    meta.access = 4;
+                    callback(null, meta);
+                });
+            } else {
+                client.headBucket({ Bucket: paths.bucket }, function (err, data) {
+                    if (err) return callback(err);
+                    meta.mime = 'inode/directory';
+                    meta.name = paths.bucket;
+                    meta.path = '/' + paths.bucket;
+                    meta.size = 0;
+                    callback(null, meta);
+                });
+            }
+        } else {
+            meta.mime = 'inode/directory';
+            meta.name = '/';
+            meta.path = '/';
+            meta.size = 0;
+            process.nextTick(function () {
+                callback(null, meta);
+            });
+        }
     }
 
     function mkdir(path, options, callback) {
