@@ -67,7 +67,6 @@ module.exports = function setup(fsOptions) {
     }
 
     function mkfile(path, options, callback) {
-        console.warn('mkfile: does not follow the the vfs standards currently');
         if (!options.stream) {
             return callback(new Error('stream is a required option'));
         }
@@ -78,12 +77,32 @@ module.exports = function setup(fsOptions) {
 
         var paths = getPaths(path);
         var meta = {};
+        var params = {};
         if (!paths.bucket) {
             return callback(new Error('mkfile: root file creation not allowed'));
         } else if (!paths.path) {
             return callback(new Error('mkfile: use mkdir to create bucket'));
         } else {
-            client.putObject({ Bucket: paths.bucket, Key: paths.path, Body: options.stream, ContentType: mime.lookup(path) }, function (err, data) {
+            params.Bucket       = paths.bucket;
+            params.Key          = paths.path,
+            params.Body         = options.stream;
+            params.ContentType  = options.contenType || mime.lookup(path);
+
+            if (options.acl)                        params.ACL                      = options.acl;
+            if (options.cacheControl)               params.CacheControl             = options.cacheControl;
+            if (options.contentEncoding)            params.ContentEncoding          = options.contentEncoding;
+            if (options.contentLanguage)            params.ContentLanguage          = options.ContentLanguage;
+            if (options.expires)                    params.Expires                  = options.expires;
+            if (options.grantFullControl)           params.GrantFullControl         = options.grantFullControl;
+            if (options.grantRead)                  params.GrantRead                = options.grantRead;
+            if (options.grantReadAcp)               params.GrantReadACP             = options.grantReadAcp;
+            if (options.grantWriteAcp)              params.GrantWriteACP            = options.grantWriteAcp;
+            if (options.metadata)                   params.Metadata                 = options.metadata;
+            if (options.serverSideEncryption)       params.ServerSideEncryption     = options.serverSideEncryption;
+            if (options.storageClass)               params.StorageClass             = options.storageClass;
+            if (options.websiteRedirectLocation)    params.WebsiteRedirectLocation  = options.storageClass;
+
+            client.putObject(params, function (err, data) {
                 if (err) return callback(err);
                 callback(null, meta);
             });
