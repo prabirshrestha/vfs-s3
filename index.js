@@ -67,7 +67,27 @@ module.exports = function setup(fsOptions) {
     }
 
     function mkfile(path, options, callback) {
-        callback(new Error('mkfile: Not Implemented'));
+        console.warn('mkfile: does not follow the the vfs standards currently');
+        if (!options.stream) {
+            return callback(new Error('stream is a required option'));
+        }
+
+        if (!options.stream.readable) {
+            return callback(new Error('stream must be readable'));
+        }
+
+        var paths = getPaths(path);
+        var meta = {};
+        if (!paths.bucket) {
+            return callback(new Error('mkfile: root file creation not allowed'));
+        } else if (!paths.path) {
+            return callback(new Error('mkfile: use mkdir to create bucket'));
+        } else {
+            client.putObject({ Bucket: paths.bucket, Key: paths.path, Body: options.stream, ContentType: mime.lookup(path) }, function (err, data) {
+                if (err) return callback(err);
+                callback(null, meta);
+            });
+        }
     }
 
     function rmfile(path, options, callback) {
