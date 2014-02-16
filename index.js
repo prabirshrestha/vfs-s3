@@ -5,7 +5,7 @@ var Stream  = require('stream'),
 module.exports = function setup(fsOptions) {
 
     var client;
-    intialize();
+    initialize();
 
     return {
         readfile:   readfile,
@@ -20,7 +20,7 @@ module.exports = function setup(fsOptions) {
         symlink:    symlink
     };
 
-    function intialize() {
+    function initialize() {
         var options = {
             accessKeyId: fsOptions.key,
             secretAccessKey: fsOptions.secret
@@ -206,7 +206,17 @@ module.exports = function setup(fsOptions) {
     }
 
     function mkdir(path, options, callback) {
-        callback(new Error('mkdir: Not Implemented'));
+        var paths = getPaths(path);
+        if (!paths.bucket) {
+            return callback(new Error('mkdir: creating root directory not allowed'));
+        } else if (!paths.path) {
+            return callback(new Error('mkdir: creating bucket not supported'));
+        } else {
+            client.putObject({ Bucket: paths.bucket, Key: paths.path + '/' }, function (err, data) {
+                if (err) return callback(err);
+                callback(null, {});
+            });
+        }
     }
 
     function rmdir(path, options, callback) {
