@@ -10,6 +10,6 @@
   "license": "ISC",
   "dependencies": {
     "mime": "~1.2.11",
-    "aws-sdk": "~2.0.0-rc9"
+    "aws-sdk": "~2.1691.0"
   }
 }
